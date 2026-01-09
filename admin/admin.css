@@ -1,0 +1,126 @@
+* {
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f4f6f8;
+  color: #333;
+}
+
+.header {
+  background: #ff7a00;
+  color: #fff;
+  padding: 15px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.header .sub {
+  font-size: 12px;
+  opacity: .9;
+}
+
+.header nav a {
+  color: #fff;
+  margin-left: 15px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.content {
+  padding: 25px;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.pedido-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.numero {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.status.impresso {
+  background: #28a745;
+  color: #fff;
+}
+
+.info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
+  gap: 8px;
+  margin: 15px 0;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.total {
+  font-size: 20px;
+  font-weight: bold;
+  color: #28a745;
+}
+
+.acoes a,
+.acoes button {
+  background: #ff7a00;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-left: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.acoes button:hover,
+.acoes a:hover {
+  opacity: .9;
+}
+
+.vazio {
+  text-align: center;
+  padding: 50px;
+  color: #777;
+  font-size: 18px;
+}
+
+/* 📱 MOBILE */
+@media (max-width: 600px) {
+  .footer {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+}

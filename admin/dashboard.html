@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard RD Distribuidora</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; }
+  h1 { text-align: center; color: #2c3e50; }
+  .cards { display: flex; justify-content: space-around; flex-wrap: wrap; margin-bottom: 20px; }
+  .card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); text-align: center; flex: 1 1 150px; margin: 10px; }
+  .card h2 { margin: 10px 0; color: #34495e; }
+  .card p { font-size: 24px; font-weight: bold; color: #2c3e50; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; }
+  th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+  th { background: #3498db; color: #fff; }
+  tr:hover { background: #f1f1f1; }
+  button { background: #3498db; color: #fff; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; margin: 2px; }
+  button:hover { background: #2980b9; }
+  .actions { display: flex; }
+</style>
+</head>
+<body>
+
+<h1>📊 Dashboard RD Distribuidora</h1>
+
+<div class="cards">
+  <div class="card">
+    <h2>Total Pedidos</h2>
+    <p id="total">0</p>
+  </div>
+  <div class="card">
+    <h2>Pedidos Impressos</h2>
+    <p id="impressos">0</p>
+  </div>
+  <div class="card">
+    <h2>Pedidos Pendentes</h2>
+    <p id="pendentes">0</p>
+  </div>
+</div>
+
+<h2>📍 Condominios que mais pedem</h2>
+<table>
+  <thead>
+    <tr><th>Condomínio</th><th>Total Pedidos</th></tr>
+  </thead>
+  <tbody id="condominios"></tbody>
+</table>
+
+<div style="margin-top:20px;">
+  <button onclick="gerarRelatorio()">📄 Gerar Relatório PDF do Dia</button>
+  <button onclick="apagarHistorico()">🗑️ Apagar Histórico do Dia</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<canvas id="graficoCondominios" width="400" height="150"></canvas>
+<script>
+async function carregarDashboard() {
+  const res = await fetch('/admin/dashboard-dados');
+  const dados = await res.json();
+
+  document.getElementById('total').innerText = dados.total;
+  document.getElementById('impressos').innerText = dados.impressos;
+  document.getElementById('pendentes').innerText = dados.pendentes;
+
+  const tbody = document.getElementById('condominios');
+  tbody.innerHTML = '';
+  const labels = [], valores = [];
+  dados.condominios.forEach(c => {
+    tbody.innerHTML += `<tr><td>${c.condominio}</td><td>${c.total}</td></tr>`;
+    labels.push(c.condominio);
+    valores.push(c.total);
+  });
+
+  new Chart(document.getElementById('graficoCondominios'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Pedidos por Condomínio', data: valores, backgroundColor: '#3498db' }] },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+}
+carregarDashboard();
+</script>
+
+
+<script>
+    
+async function carregarDashboard() {
+  const res = await fetch('/admin/dashboard-dados');
+  const dados = await res.json();
+
+  document.getElementById('total').innerText = dados.total;
+  document.getElementById('impressos').innerText = dados.impressos;
+  document.getElementById('pendentes').innerText = dados.pendentes;
+
+  const tbody = document.getElementById('condominios');
+  tbody.innerHTML = '';
+  dados.condominios.forEach(c => {
+    tbody.innerHTML += `<tr><td>${c.condominio}</td><td>${c.total}</td></tr>`;
+  });
+}
+
+// Gerar PDF do dia
+function gerarRelatorio() {
+  window.open('/admin/relatorio-diario', '_blank');
+}
+
+// Apagar histórico do dia
+async function apagarHistorico() {
+  if (!confirm('Deseja realmente apagar todo o histórico do dia?')) return;
+  const res = await fetch('/admin/apagar-historico', { method: 'DELETE' });
+  if (res.ok) {
+    alert('Histórico do dia apagado!');
+    carregarDashboard();
+  } else {
+    alert('Erro ao apagar histórico.');
+  }
+}
+
+carregarDashboard();
+</script>
+</body>
+</html>

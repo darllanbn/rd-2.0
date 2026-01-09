@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Pedidos | RD Distribuidora</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#f4f6f8;
+  padding:20px;
+}
+.container {
+  max-width:1100px;
+  margin:auto;
+  background:#fff;
+  padding:20px;
+  border-radius:8px;
+  box-shadow:0 2px 6px rgba(0,0,0,.1);
+}
+h1 {
+  color:#ff7a00;
+}
+table {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+th, td {
+  padding:10px;
+  border-bottom:1px solid #ddd;
+  text-align:center;
+}
+th {
+  background:#ff7a00;
+  color:#fff;
+}
+button {
+  padding:6px 10px;
+  border:none;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:14px;
+}
+.imprimir {
+  background:#198754;
+  color:#fff;
+}
+.imprimir:hover {
+  background:#157347;
+}
+.impresso {
+  background:#adb5bd;
+  color:#333;
+  cursor:not-allowed;
+}
+.voltar {
+  background:#6c757d;
+  color:#fff;
+  margin-bottom:10px;
+}
+.voltar:hover {
+  background:#5a6268;
+}
+
+@media (max-width:768px){
+  table, thead, tbody, th, td, tr {
+    display:block;
+  }
+  thead {
+    display:none;
+  }
+  tr {
+    border:1px solid #ddd;
+    border-radius:6px;
+    margin-bottom:10px;
+    padding:10px;
+  }
+  td {
+    border:none;
+    text-align:left;
+    padding:6px 0;
+  }
+  td::before {
+    font-weight:bold;
+    display:block;
+  }
+  td:nth-child(1)::before { content:"Pedido"; }
+  td:nth-child(2)::before { content:"Data"; }
+  td:nth-child(3)::before { content:"Condomínio"; }
+  td:nth-child(4)::before { content:"Casa"; }
+  td:nth-child(5)::before { content:"Pagamento"; }
+  td:nth-child(6)::before { content:"Total"; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <button class="voltar" onclick="location.href='/admin/admin.html'">⬅ Voltar</button>
+  <h1>📋 Pedidos Recebidos</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Data</th>
+        <th>Condomínio</th>
+        <th>Casa</th>
+        <th>Pagamento</th>
+        <th>Total</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="lista"></tbody>
+  </table>
+</div>
+
+<script>
+async function carregarPedidos() {
+  try {
+    const res = await fetch('/admin/pedidos');
+    const pedidos = await res.json();
+    const tbody = document.getElementById('lista');
+    tbody.innerHTML = '';
+
+    if (!pedidos.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7">Nenhum pedido encontrado</td>
+        </tr>
+      `;
+      return;
+    }
+
+    pedidos.forEach(p => {
+      const jaImpresso = p.status === 'IMPRESSO';
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${p.id}</td>
+          <td>${p.data}</td>
+          <td>${p.condominio}</td>
+          <td>${p.casa || '-'}</td>
+          <td>${p.pagamento}</td>
+          <td>R$ ${Number(p.total).toFixed(2)}</td>
+          <td>
+            ${
+              jaImpresso
+              ? `<button class="impresso" disabled>✔ IMPRESSO</button>`
+              : `<button class="imprimir" onclick="imprimirPedido(${p.id})">🖨️ Imprimir</button>`
+            }
+          </td>
+        </tr>
+      `;
+    });
+
+  } catch (err) {
+    alert('Erro ao carregar pedidos');
+    console.error(err);
+  }
+}
+
+async function imprimirPedido(id) {
+  if (!confirm('Deseja imprimir este pedido?')) return;
+
+  try {
+    const res = await fetch(`/admin/pedidos/${id}/imprimir`, {
+      method: 'POST'
+    });
+
+    if (res.ok) {
+      alert('Pedido impresso com sucesso!');
+      carregarPedidos();
+    } else {
+      alert('Erro ao imprimir pedido');
+    }
+  } catch (e) {
+    alert('Erro de comunicação com o servidor');
+  }
+}
+
+carregarPedidos();
+</script>
+
+</body>
+</html>

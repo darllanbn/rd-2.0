@@ -1,0 +1,261 @@
+/* ======================
+   RESET & BASE
+====================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+body {
+  background: #f3f5f7;
+  color: #333;
+}
+
+/* ======================
+   TOPO
+====================== */
+.topo {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c);
+  color: #fff;
+  padding: 28px 20px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+
+.topo h1 {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.topo p {
+  font-size: 15px;
+  opacity: 0.95;
+}
+
+/* ======================
+   LAYOUT
+====================== */
+.container {
+  display: grid;
+  grid-template-columns: 3fr 1.3fr;
+  gap: 24px;
+  padding: 24px;
+  max-width: 1280px;
+  margin: auto;
+}
+
+/* ======================
+   PRODUTOS
+====================== */
+.produtos h2 {
+  margin-bottom: 16px;
+  font-size: 22px;
+}
+
+.produtos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 18px;
+}
+
+.produto-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0,0,0,.08);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.produto-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 26px rgba(0,0,0,.12);
+}
+
+.produto-card img {
+  width: 100%;
+  height: 140px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.produto-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.preco {
+  color: #1e9b4b;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.estoque {
+  font-size: 13px;
+  color: #777;
+}
+
+/* Botão produto */
+.produto-card button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  background: #ff7a00;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s ease, transform .1s ease;
+}
+
+.produto-card button:hover {
+  background: #ff8f26;
+}
+
+.produto-card button:active {
+  transform: scale(0.97);
+}
+
+.produto-card button:disabled {
+  background: #ddd;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* ======================
+   CARRINHO
+====================== */
+.carrinho {
+  background: #fff;
+  padding: 18px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+  position: sticky;
+  top: 20px;
+}
+
+.carrinho h2 {
+  margin-bottom: 14px;
+  font-size: 20px;
+}
+
+/* Campos */
+.campo {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.campo label {
+  font-size: 14px;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.campo input,
+.campo select,
+.campo textarea {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  outline: none;
+  transition: border .2s ease;
+}
+
+.campo textarea {
+  resize: none;
+  min-height: 60px;
+}
+
+.campo input:focus,
+.campo select:focus,
+.campo textarea:focus {
+  border-color: #ff7a00;
+}
+
+/* Lista carrinho */
+.lista-carrinho {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.carrinho-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #ddd;
+}
+
+.carrinho-item button {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+/* Resumo */
+.resumo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 12px 0;
+}
+
+/* Finalizar */
+.btn-finalizar {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #28a745, #3fd36f);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .2s ease, transform .1s ease;
+}
+
+.btn-finalizar:hover {
+  opacity: 0.9;
+}
+
+.btn-finalizar:active {
+  transform: scale(0.97);
+}
+
+/* ======================
+   RODAPÉ
+====================== */
+.rodape {
+  text-align: center;
+  font-size: 13px;
+  color: #777;
+  padding: 18px;
+}
+
+/* ======================
+   MOBILE
+====================== */
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .carrinho {
+    position: relative;
+    top: auto;
+  }
+
+  .topo h1 {
+    font-size: 24px;
+  }
+}

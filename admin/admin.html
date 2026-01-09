@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Admin RD - Produtos</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; }
+  h2, h3 { color: #333; }
+  form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  form input { padding: 5px; }
+  form button { padding: 5px 10px; cursor: pointer; background: #28a745; color: #fff; border: none; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th, td { padding: 8px; text-align: center; border: 1px solid #ccc; }
+  th { background: #007bff; color: #fff; }
+  button { cursor: pointer; border: none; border-radius: 3px; padding: 5px 8px; }
+  .btn-editar { background: #ffc107; color: #fff; }
+  .btn-excluir { background: #dc3545; color: #fff; }
+  input[type="number"], input[type="text"] { width: 80px; }
+  
+  /* Modal */
+  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+           background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+  .modal-content { background: #fff; padding: 20px; border-radius: 5px; width: 400px; }
+  .modal-content h3 { margin-top: 0; }
+  .modal-content input { width: 100%; margin-bottom: 10px; padding: 5px; }
+  .modal-content button { width: 48%; margin-right: 2%; }
+</style>
+</head>
+<body>
+
+<h2>📦 Cadastro de Produtos</h2>
+
+<form id="form-produto" enctype="multipart/form-data">
+  <input type="text" name="nome" placeholder="Nome" required>
+  <input type="number" step="0.01" name="preco" placeholder="Preço" required>
+  <input type="number" name="estoque" placeholder="Estoque" required>
+  <input type="file" name="imagem" required>
+  <button>Adicionar</button>
+</form>
+
+<hr>
+
+<h3>📋 Produtos Cadastrados</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th><th>Imagem</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th>
+</tr>
+</thead>
+<tbody id="lista"></tbody>
+</table>
+
+<!-- Modal de edição -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h3>Editar Produto</h3>
+    <input type="text" id="edit-nome" placeholder="Nome">
+    <input type="number" step="0.01" id="edit-preco" placeholder="Preço">
+    <input type="number" id="edit-estoque" placeholder="Estoque">
+    <input type="file" id="edit-imagem">
+    <button onclick="salvarEdicao()">Salvar</button>
+    <button onclick="fecharModal()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+let produtos = [];
+let produtoEditando = null;
+
+const form = document.getElementById('form-produto');
+const modal = document.getElementById('modal');
+
+form.onsubmit = async e => {
+  e.preventDefault();
+  const data = new FormData(form);
+  await fetch('/admin/produto', { method: 'POST', body: data });
+  form.reset();
+  carregar();
+};
+
+async function carregar() {
+  const res = await fetch('/admin/produtos');
+  produtos = await res.json();
+  const tbody = document.getElementById('lista');
+  tbody.innerHTML = '';
+
+  produtos.forEach(p => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.id}</td>
+        <td><img src="${p.imagem}" width="50"></td>
+        <td>${p.nome}</td>
+        <td>R$ ${p.preco.toFixed(2)}</td>
+        <td>${p.estoque}</td>
+        <td>
+          <button class="btn-editar" onclick="abrirModal(${p.id})">✏️</button>
+          <button class="btn-excluir" onclick="excluir(${p.id})">🗑️</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+// Excluir produto
+async function excluir(id) {
+  if (!confirm('Excluir produto?')) return;
+  await fetch('/admin/produto/' + id, { method: 'DELETE' });
+  carregar();
+}
+
+// Abrir modal de edição
+function abrirModal(id) {
+  produtoEditando = produtos.find(p => p.id === id);
+  if (!produtoEditando) return;
+
+  document.getElementById('edit-nome').value = produtoEditando.nome;
+  document.getElementById('edit-preco').value = produtoEditando.preco;
+  document.getElementById('edit-estoque').value = produtoEditando.estoque;
+
+  modal.style.display = 'flex';
+}
+
+// Fechar modal
+function fecharModal() {
+  produtoEditando = null;
+  modal.style.display = 'none';
+}
+
+// Salvar edição
+async function salvarEdicao() {
+  const nome = document.getElementById('edit-nome').value;
+  const preco = Number(document.getElementById('edit-preco').value);
+  const estoque = Number(document.getElementById('edit-estoque').value);
+  const imagemFile = document.getElementById('edit-imagem').files[0];
+
+  const formData = new FormData();
+  formData.append('nome', nome);
+  formData.append('preco', preco);
+  formData.append('estoque', estoque);
+  if (imagemFile) formData.append('imagem', imagemFile);
+
+  await fetch('/admin/produto/' + produtoEditando.id, {
+    method: 'PUT',
+    body: formData
+  });
+
+  fecharModal();
+  carregar();
+}
+
+carregar();
+</script>
+
+</body>
+</html>

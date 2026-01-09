@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>RD Distribuidora</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Fonte moderna -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-conteudo">
+    <h1>RD Distribuidora</h1>
+    <p>Gás e Água com entrega rápida</p>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- PRODUTOS -->
+  <section class="produtos">
+    <h2>🛍 Produtos</h2>
+    <div id="produtos" class="produtos-grid"></div>
+  </section>
+
+  <!-- CARRINHO -->
+  <aside class="carrinho">
+    <h2>🛒 Seu Pedido</h2>
+
+    <div class="campo">
+      <label>🏢 Condomínio</label>
+      <select id="condominio">
+        <option value="">Selecione</option>
+        <option>Alfazema</option>
+        <option>Angelica</option>
+        <option>Amarilis</option>
+        <option>Azalea</option>
+        <option>Dalia</option>
+        <option>Bromelia</option>
+        <option>Hortencia</option>
+        <option>Gardenia</option>
+        <option>Girassol</option>
+        <option>Lirio</option>
+        <option>Iris</option>
+        <option>Margarida</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label>🏠 Casa / Apto</label>
+      <input id="casa" placeholder="Ex: Casa 12 / Apto 304">
+    </div>
+
+    <div class="campo">
+      <label>💳 Forma de pagamento</label>
+      <select id="pagamento">
+        <option value="">Selecione</option>
+        <option>Pix</option>
+        <option>Dinheiro</option>
+        <option>Cartao</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label>📝 Observações</label>
+      <textarea id="obs" placeholder="Ex: Portaria, ligar antes, troco para 100..."></textarea>
+    </div>
+
+    <div id="carrinho" class="lista-carrinho"></div>
+
+    <div class="resumo">
+      <span>Total</span>
+      <strong>R$ <span id="total">0.00</span></strong>
+    </div>
+
+    <button class="btn-finalizar" onclick="finalizar()">
+      Finalizar Pedido
+    </button>
+  </aside>
+
+</main>
+
+<footer class="rodape">
+  <p>© RD Distribuidora - Todos os direitos reservados</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
