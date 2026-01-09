@@ -306,4 +306,8 @@ app.delete('/admin/apagar-historico', (req, res) => {
 /* ======================
    SERVIDOR
 ====================== */
-app.listen(3000, () => console.log('🚀 RD Distribuidora rodando em http://localhost:3000'));
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 RD Distribuidora rodando na porta ${PORT}`);
+});
