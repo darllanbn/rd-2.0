@@ -5,8 +5,6 @@
 <title>Pedidos | RD Distribuidora</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.js"></script>
-
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -21,7 +19,9 @@ body {
   border-radius:8px;
   box-shadow:0 2px 6px rgba(0,0,0,.1);
 }
-h1 { color:#ff7a00; }
+h1 {
+  color:#ff7a00;
+}
 table {
   width:100%;
   border-collapse:collapse;
@@ -46,9 +46,8 @@ button {
   background:#198754;
   color:#fff;
 }
-.impresso {
-  background:#adb5bd;
-  cursor:not-allowed;
+.imprimir:hover {
+  background:#157347;
 }
 </style>
 </head>
@@ -65,6 +64,7 @@ button {
         <th>Data</th>
         <th>Condomínio</th>
         <th>Casa</th>
+        <th>Pagamento</th>
         <th>Total</th>
         <th>Ação</th>
       </tr>
@@ -74,19 +74,20 @@ button {
 </div>
 
 <script>
-const PRINTER_NAME = "ELGIN i9(USB)"; // 🔴 AJUSTE SE NECESSÁRIO
-
-async function conectarQZ() {
-  if (!qz.websocket.isActive()) {
-    await qz.websocket.connect();
-  }
-}
-
 async function carregarPedidos() {
   const res = await fetch('/admin/pedidos');
   const pedidos = await res.json();
   const tbody = document.getElementById('lista');
   tbody.innerHTML = '';
+
+  if (!pedidos.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7">Nenhum pedido pendente</td>
+      </tr>
+    `;
+    return;
+  }
 
   pedidos.forEach(p => {
     tbody.innerHTML += `
@@ -95,6 +96,7 @@ async function carregarPedidos() {
         <td>${p.data}</td>
         <td>${p.condominio}</td>
         <td>${p.casa || '-'}</td>
+        <td>${p.pagamento}</td>
         <td>R$ ${Number(p.total).toFixed(2)}</td>
         <td>
           <button class="imprimir" onclick="imprimir(${p.id})">
@@ -106,31 +108,21 @@ async function carregarPedidos() {
   });
 }
 
-async function imprimir(id) {
-  if (!confirm('Deseja imprimir este pedido?')) return;
+function imprimir(id) {
+  // abre o PDF do pedido em nova aba
+  const janela = window.open(`/admin/pedidos/${id}/pdf`, '_blank');
 
-  await conectarQZ();
+  // aguarda carregar e chama o print
+  const timer = setInterval(() => {
+    if (janela && janela.document.readyState === 'complete') {
+      janela.focus();
+      janela.print();
+      clearInterval(timer);
 
-  const res = await fetch(`/admin/pedidos/${id}/pdf`);
-  const blob = await res.blob();
-  const arrayBuffer = await blob.arrayBuffer();
-  const data = qz.tools.arrayBufferToBase64(arrayBuffer);
-
-  const config = qz.configs.create(PRINTER_NAME, {
-    copies: 1,
-    encoding: 'base64'
-  });
-
-  await qz.print(config, [{
-    type: 'pdf',
-    format: 'base64',
-    data: data
-  }]);
-
-  await fetch(`/admin/pedidos/${id}/imprimir`, { method: 'POST' });
-
-  alert('Pedido impresso com sucesso!');
-  carregarPedidos();
+      // marca como impresso no sistema
+      fetch(`/admin/pedidos/${id}/imprimir`, { method: 'POST' });
+    }
+  }, 500);
 }
 
 carregarPedidos();
