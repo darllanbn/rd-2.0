@@ -3,16 +3,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
-const PDFDocument = require('pdfkit');
 const moment = require('moment');
 const { Pool } = require('pg');
-
-const imprimirPedido = require('./impressao');
 
 const app = express();
 
 /* ======================
-   POSTGRES
+   POSTGRES (RENDER)
 ====================== */
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -72,6 +69,7 @@ async function initDB() {
       preco NUMERIC
     );
   `);
+
   console.log('🗄️ PostgreSQL pronto');
 }
 initDB();
@@ -92,10 +90,12 @@ app.get('/admin/produtos', async (_, res) => {
 app.post('/admin/produto', upload.single('imagem'), async (req, res) => {
   const { nome, preco, estoque } = req.body;
   const imagem = req.file ? '/uploads/' + req.file.filename : '';
+
   await db.query(
     'INSERT INTO produtos (nome, preco, estoque, imagem) VALUES ($1,$2,$3,$4)',
     [nome, preco, estoque, imagem]
   );
+
   res.json({ ok: true });
 });
 
@@ -114,17 +114,26 @@ app.post('/pedido', async (req, res) => {
     );
   }
 
-  const pedido = await db.query(
+  const pedidoRes = await db.query(
     `INSERT INTO pedidos (data, condominio, casa, pagamento, obs, total)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-    [new Date().toLocaleString('pt-BR'), condominio, casa || '', pagamento, obs || '', total]
+    [
+      new Date().toLocaleString('pt-BR'),
+      condominio,
+      casa || '',
+      pagamento,
+      obs || '',
+      total
+    ]
   );
+
+  const pedidoId = pedidoRes.rows[0].id;
 
   for (const item of carrinho) {
     await db.query(
       `INSERT INTO pedido_itens (pedido_id, produto, qtd, preco)
        VALUES ($1,$2,$3,$4)`,
-      [pedido.rows[0].id, item.nome, item.qtd, item.preco]
+      [pedidoId, item.nome, item.qtd, item.preco]
     );
   }
 
@@ -132,7 +141,7 @@ app.post('/pedido', async (req, res) => {
 });
 
 /* ======================
-   PEDIDOS (IGUAL SQLITE)
+   LISTAR PEDIDOS
 ====================== */
 async function listarPedidos(status, res) {
   const pedidosRes = await db.query(
@@ -141,7 +150,6 @@ async function listarPedidos(status, res) {
   );
 
   const pedidos = pedidosRes.rows;
-  if (!pedidos.length) return res.json([]);
 
   for (const p of pedidos) {
     const itensRes = await db.query(
@@ -158,13 +166,13 @@ app.get('/admin/pedidos', (_, res) => listarPedidos('PENDENTE', res));
 app.get('/admin/pedidos-impressos', (_, res) => listarPedidos('IMPRESSO', res));
 
 /* ======================
-   PDF PEDIDO
+   IMPRESSÃO TÉRMICA (CTRL+P)
 ====================== */
-app.get('/admin/pedidos/:id/pdf', async (req, res) => {
+app.get('/admin/pedidos/:id/print', async (req, res) => {
   const id = req.params.id;
 
   const pedidoRes = await db.query('SELECT * FROM pedidos WHERE id=$1', [id]);
-  if (!pedidoRes.rows.length) return res.sendStatus(404);
+  if (!pedidoRes.rows.length) return res.send('Pedido não encontrado');
 
   const itensRes = await db.query(
     'SELECT * FROM pedido_itens WHERE pedido_id=$1',
@@ -174,48 +182,64 @@ app.get('/admin/pedidos/:id/pdf', async (req, res) => {
   const pedido = pedidoRes.rows[0];
   const itens = itensRes.rows;
 
-  res.setHeader('Content-Type', 'application/pdf');
-  const doc = new PDFDocument({ size: [226, 800], margin: 10 });
-  doc.pipe(res);
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pedido ${pedido.id}</title>
 
-  doc.fontSize(14).text('RD DISTRIBUIDORA', { align: 'center' });
-  doc.text(`Pedido #${pedido.id}`);
-  doc.text(`Data: ${pedido.data}`);
-  doc.text(`Condomínio: ${pedido.condominio}`);
-  doc.text(`Casa: ${pedido.casa}`);
-  doc.text(`Pagamento: ${pedido.pagamento}`);
-  if (pedido.obs) doc.text(`Obs: ${pedido.obs}`);
+<style>
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
 
-  doc.moveDown().text('ITENS');
-  itens.forEach(i =>
-    doc.text(`${i.qtd}x ${i.produto} - R$ ${(i.qtd * i.preco).toFixed(2)}`)
-  );
+body {
+  width: 80mm;
+  margin: 0;
+  padding: 6mm;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
 
-  doc.moveDown().text(`TOTAL: R$ ${Number(pedido.total).toFixed(2)}`, { align: 'right' });
-  doc.end();
-});
+.center { text-align: center; }
+hr { border-top: 1px dashed #000; }
 
-/* ======================
-   IMPRESSÃO
-====================== */
-app.post('/admin/pedidos/:id/imprimir', async (req, res) => {
-  const id = req.params.id;
+</style>
+</head>
 
-  const pedidoRes = await db.query('SELECT * FROM pedidos WHERE id=$1', [id]);
-  if (!pedidoRes.rows.length) return res.status(404).json({ erro: 'Pedido não encontrado' });
+<body onload="window.print()">
 
-  const itensRes = await db.query(
-    'SELECT * FROM pedido_itens WHERE pedido_id=$1',
-    [id]
-  );
+<div class="center">
+<strong>RD DISTRIBUIDORA</strong><br>
+Pedido Nº ${pedido.id}
+</div>
 
-  await imprimirPedido({
-    ...pedidoRes.rows[0],
-    itens: itensRes.rows
-  });
+<hr>
+
+${itens.map(i =>
+  `<div>${i.qtd}x ${i.produto}<br>R$ ${(i.qtd * i.preco).toFixed(2)}</div>`
+).join('')}
+
+<hr>
+
+<strong>Total: R$ ${Number(pedido.total).toFixed(2)}</strong>
+
+<hr>
+
+<div>
+Cond.: ${pedido.condominio}<br>
+Casa: ${pedido.casa}<br>
+Pgto: ${pedido.pagamento}<br>
+Obs: ${pedido.obs || '-'}
+</div>
+
+</body>
+</html>
+  `);
 
   await db.query(`UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`, [id]);
-  res.json({ ok: true });
 });
 
 /* ======================
