@@ -5,6 +5,9 @@
 <title>Pedidos | RD Distribuidora</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- QZ Tray -->
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.js"></script>
+
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -64,6 +67,7 @@ button {
   background:#5a6268;
 }
 
+/* Mobile */
 @media (max-width:768px){
   table, thead, tbody, th, td, tr {
     display:block;
@@ -119,66 +123,95 @@ button {
 </div>
 
 <script>
-async function carregarPedidos() {
+const NOME_IMPRESSORA = "ELGIN i9 (USB)";
+
+/* =========================
+   CONECTAR AO QZ TRAY
+========================= */
+async function conectarQZ() {
+  if (qz.websocket.isActive()) return;
+
   try {
-    const res = await fetch('/admin/pedidos');
-    const pedidos = await res.json();
-    const tbody = document.getElementById('lista');
-    tbody.innerHTML = '';
-
-    if (!pedidos.length) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7">Nenhum pedido encontrado</td>
-        </tr>
-      `;
-      return;
-    }
-
-    pedidos.forEach(p => {
-      const jaImpresso = p.status === 'IMPRESSO';
-
-      tbody.innerHTML += `
-        <tr>
-          <td>${p.id}</td>
-          <td>${p.data}</td>
-          <td>${p.condominio}</td>
-          <td>${p.casa || '-'}</td>
-          <td>${p.pagamento}</td>
-          <td>R$ ${Number(p.total).toFixed(2)}</td>
-          <td>
-            ${
-              jaImpresso
-              ? `<button class="impresso" disabled>✔ IMPRESSO</button>`
-              : `<button class="imprimir" onclick="imprimirPedido(${p.id})">🖨️ Imprimir</button>`
-            }
-          </td>
-        </tr>
-      `;
-    });
-
+    await qz.websocket.connect();
+    console.log("✅ QZ Tray conectado");
   } catch (err) {
-    alert('Erro ao carregar pedidos');
-    console.error(err);
+    alert("❌ QZ Tray não está aberto");
+    throw err;
   }
 }
 
+/* =========================
+   CARREGAR PEDIDOS
+========================= */
+async function carregarPedidos() {
+  const res = await fetch('/admin/pedidos');
+  const pedidos = await res.json();
+  const tbody = document.getElementById('lista');
+  tbody.innerHTML = '';
+
+  if (!pedidos.length) {
+    tbody.innerHTML = `<tr><td colspan="7">Nenhum pedido encontrado</td></tr>`;
+    return;
+  }
+
+  pedidos.forEach(p => {
+    const impresso = p.status === 'IMPRESSO';
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.id}</td>
+        <td>${p.data}</td>
+        <td>${p.condominio}</td>
+        <td>${p.casa || '-'}</td>
+        <td>${p.pagamento}</td>
+        <td>R$ ${Number(p.total).toFixed(2)}</td>
+        <td>
+          ${
+            impresso
+              ? `<button class="impresso" disabled>✔ IMPRESSO</button>`
+              : `<button class="imprimir" onclick="imprimirPedido(${p.id})">🖨️ Imprimir</button>`
+          }
+        </td>
+      </tr>
+    `;
+  });
+}
+
+/* =========================
+   IMPRIMIR PEDIDO
+========================= */
 async function imprimirPedido(id) {
-  if (!confirm('Deseja imprimir este pedido?')) return;
+  if (!confirm("Deseja imprimir este pedido?")) return;
 
   try {
-    const res = await fetch(`/admin/pedidos/${id}/imprimir`, {
-      method: 'POST'
+    await conectarQZ();
+
+    // Busca texto do pedido no servidor
+    const res = await fetch(`/admin/pedidos/${id}/texto`);
+    const texto = await res.text();
+
+    const config = qz.configs.create(NOME_IMPRESSORA, {
+      encoding: "ISO-8859-1",
+      size: { width: 80, unit: "mm" }
     });
 
-    if (res.ok) {
-      alert('Pedido impresso com sucesso!');
-      carregarPedidos();
-    } else {
-      alert('Erro ao imprimir pedido');
-    }
-  } catch (e) {
-    alert('Erro de comunicação com o servidor');
+    const dados = [{
+      type: 'raw',
+      format: 'command',
+      data: texto + "\n\n\n\n"
+    }];
+
+    await qz.print(config, dados);
+
+    // Marca como impresso no banco
+    await fetch(`/admin/pedidos/${id}/imprimir`, { method: 'POST' });
+
+    alert("✅ Pedido impresso com sucesso!");
+    carregarPedidos();
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Erro ao imprimir. Verifique o QZ Tray.");
   }
 }
 

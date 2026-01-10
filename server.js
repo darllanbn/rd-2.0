@@ -208,6 +208,56 @@ app.get('/admin/pedidos/:id/pdf', async (req, res) => {
 });
 
 /* ======================
+   TEXTO PARA IMPRESSÃO (QZ TRAY)
+====================== */
+app.get('/admin/pedidos/:id/texto', async (req, res) => {
+  const { id } = req.params;
+
+  const pedido = await db.query(
+    'SELECT * FROM pedidos WHERE id=$1',
+    [id]
+  );
+
+  if (!pedido.rows.length) {
+    return res.status(404).send('Pedido não encontrado');
+  }
+
+  const itens = await db.query(
+    'SELECT * FROM pedido_itens WHERE pedido_id=$1',
+    [id]
+  );
+
+  let texto = '';
+  texto += 'RD DISTRIBUIDORA\n';
+  texto += '-----------------------------\n';
+  texto += `PEDIDO #${id}\n`;
+  texto += `DATA: ${pedido.rows[0].data}\n`;
+  texto += `COND: ${pedido.rows[0].condominio}\n`;
+  texto += `CASA: ${pedido.rows[0].casa || '-'}\n`;
+  texto += `PAGTO: ${pedido.rows[0].pagamento}\n`;
+
+  if (pedido.rows[0].obs) {
+    texto += `OBS: ${pedido.rows[0].obs}\n`;
+  }
+
+  texto += '-----------------------------\n';
+  texto += 'ITENS\n';
+
+  itens.rows.forEach(i => {
+    texto += `${i.qtd}x ${i.produto}\n`;
+    texto += `   R$ ${(i.qtd * i.preco).toFixed(2)}\n`;
+  });
+
+  texto += '-----------------------------\n';
+  texto += `TOTAL: R$ ${Number(pedido.rows[0].total).toFixed(2)}\n`;
+  texto += '-----------------------------\n';
+  texto += 'Obrigado pela preferência!\n';
+
+  res.type('text/plain');
+  res.send(texto);
+});
+
+/* ======================
    IMPRESSÃO
 ====================== */
 app.post('/admin/pedidos/:id/imprimir', async (req, res) => {
