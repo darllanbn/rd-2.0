@@ -17,11 +17,8 @@ body {
   background:#fff;
   padding:20px;
   border-radius:8px;
-  box-shadow:0 2px 6px rgba(0,0,0,.1);
 }
-h1 {
-  color:#ff7a00;
-}
+h1 { color:#ff7a00; }
 table {
   width:100%;
   border-collapse:collapse;
@@ -46,9 +43,6 @@ button {
   background:#198754;
   color:#fff;
 }
-.imprimir:hover {
-  background:#157347;
-}
 </style>
 </head>
 
@@ -64,7 +58,6 @@ button {
         <th>Data</th>
         <th>Condomínio</th>
         <th>Casa</th>
-        <th>Pagamento</th>
         <th>Total</th>
         <th>Ação</th>
       </tr>
@@ -80,15 +73,6 @@ async function carregarPedidos() {
   const tbody = document.getElementById('lista');
   tbody.innerHTML = '';
 
-  if (!pedidos.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="7">Nenhum pedido pendente</td>
-      </tr>
-    `;
-    return;
-  }
-
   pedidos.forEach(p => {
     tbody.innerHTML += `
       <tr>
@@ -96,7 +80,6 @@ async function carregarPedidos() {
         <td>${p.data}</td>
         <td>${p.condominio}</td>
         <td>${p.casa || '-'}</td>
-        <td>${p.pagamento}</td>
         <td>R$ ${Number(p.total).toFixed(2)}</td>
         <td>
           <button class="imprimir" onclick="imprimir(${p.id})">
@@ -109,20 +92,11 @@ async function carregarPedidos() {
 }
 
 function imprimir(id) {
-  // abre o PDF do pedido em nova aba
-  const janela = window.open(`/admin/pedidos/${id}/pdf`, '_blank');
-
-  // aguarda carregar e chama o print
-  const timer = setInterval(() => {
-    if (janela && janela.document.readyState === 'complete') {
-      janela.focus();
-      janela.print();
-      clearInterval(timer);
-
-      // marca como impresso no sistema
-      fetch(`/admin/pedidos/${id}/imprimir`, { method: 'POST' });
-    }
-  }, 500);
+  window.open(
+    `/admin/pedidos/${id}/print`,
+    '_blank',
+    'width=300,height=600'
+  );
 }
 
 carregarPedidos();
