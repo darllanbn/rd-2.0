@@ -7,6 +7,8 @@ const PDFDocument = require('pdfkit');
 const moment = require('moment');
 const { Pool } = require('pg');
 
+const imprimirPedido = require('./impressao');
+
 const app = express();
 
 /* ======================
@@ -39,7 +41,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 /* ======================
-   CRIAR TABELAS
+   BANCO
 ====================== */
 async function initDB() {
   await db.query(`
@@ -70,7 +72,6 @@ async function initDB() {
       preco NUMERIC
     );
   `);
-
   console.log('🗄️ PostgreSQL pronto');
 }
 initDB();
@@ -91,12 +92,10 @@ app.get('/admin/produtos', async (_, res) => {
 app.post('/admin/produto', upload.single('imagem'), async (req, res) => {
   const { nome, preco, estoque } = req.body;
   const imagem = req.file ? '/uploads/' + req.file.filename : '';
-
   await db.query(
     'INSERT INTO produtos (nome, preco, estoque, imagem) VALUES ($1,$2,$3,$4)',
     [nome, preco, estoque, imagem]
   );
-
   res.json({ ok: true });
 });
 
@@ -110,7 +109,7 @@ app.post('/pedido', async (req, res) => {
   for (const item of carrinho) {
     total += item.preco * item.qtd;
     await db.query(
-      'UPDATE produtos SET estoque = estoque - $1 WHERE id=$2',
+      'UPDATE produtos SET estoque = estoque - $1 WHERE id = $2',
       [item.qtd, item.id]
     );
   }
@@ -118,14 +117,7 @@ app.post('/pedido', async (req, res) => {
   const pedido = await db.query(
     `INSERT INTO pedidos (data, condominio, casa, pagamento, obs, total)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-    [
-      new Date().toLocaleString('pt-BR'),
-      condominio,
-      casa || '',
-      pagamento,
-      obs || '',
-      total
-    ]
+    [new Date().toLocaleString('pt-BR'), condominio, casa || '', pagamento, obs || '', total]
   );
 
   for (const item of carrinho) {
@@ -140,7 +132,7 @@ app.post('/pedido', async (req, res) => {
 });
 
 /* ======================
-   LISTAR PEDIDOS
+   PEDIDOS (IGUAL SQLITE)
 ====================== */
 async function listarPedidos(status, res) {
   const pedidosRes = await db.query(
@@ -151,73 +143,87 @@ async function listarPedidos(status, res) {
   const pedidos = pedidosRes.rows;
   if (!pedidos.length) return res.json([]);
 
-  for (const pedido of pedidos) {
+  for (const p of pedidos) {
     const itensRes = await db.query(
       'SELECT produto, qtd, preco FROM pedido_itens WHERE pedido_id=$1',
-      [pedido.id]
+      [p.id]
     );
-    pedido.itens = itensRes.rows;
+    p.itens = itensRes.rows;
   }
 
   res.json(pedidos);
 }
 
+app.get('/admin/pedidos', (_, res) => listarPedidos('PENDENTE', res));
+app.get('/admin/pedidos-impressos', (_, res) => listarPedidos('IMPRESSO', res));
+
 /* ======================
-   PDF (CTRL + P)
+   PDF PEDIDO
 ====================== */
 app.get('/admin/pedidos/:id/pdf', async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id;
 
-  const pedido = await db.query('SELECT * FROM pedidos WHERE id=$1', [id]);
-  if (!pedido.rows.length) return res.sendStatus(404);
+  const pedidoRes = await db.query('SELECT * FROM pedidos WHERE id=$1', [id]);
+  if (!pedidoRes.rows.length) return res.sendStatus(404);
 
-  const itens = await db.query('SELECT * FROM pedido_itens WHERE pedido_id=$1', [id]);
+  const itensRes = await db.query(
+    'SELECT * FROM pedido_itens WHERE pedido_id=$1',
+    [id]
+  );
+
+  const pedido = pedidoRes.rows[0];
+  const itens = itensRes.rows;
 
   res.setHeader('Content-Type', 'application/pdf');
-
   const doc = new PDFDocument({ size: [226, 800], margin: 10 });
   doc.pipe(res);
 
   doc.fontSize(14).text('RD DISTRIBUIDORA', { align: 'center' });
-  doc.moveDown(0.5);
-  doc.fontSize(10);
+  doc.text(`Pedido #${pedido.id}`);
+  doc.text(`Data: ${pedido.data}`);
+  doc.text(`Condomínio: ${pedido.condominio}`);
+  doc.text(`Casa: ${pedido.casa}`);
+  doc.text(`Pagamento: ${pedido.pagamento}`);
+  if (pedido.obs) doc.text(`Obs: ${pedido.obs}`);
 
-  doc.text(`Pedido #${id}`);
-  doc.text(`Data: ${pedido.rows[0].data}`);
-  doc.text(`Condomínio: ${pedido.rows[0].condominio}`);
-  doc.text(`Casa: ${pedido.rows[0].casa}`);
-  doc.text(`Pagamento: ${pedido.rows[0].pagamento}`);
+  doc.moveDown().text('ITENS');
+  itens.forEach(i =>
+    doc.text(`${i.qtd}x ${i.produto} - R$ ${(i.qtd * i.preco).toFixed(2)}`)
+  );
 
-  if (pedido.rows[0].obs) {
-    doc.text(`Obs: ${pedido.rows[0].obs}`);
-  }
-
-  doc.moveDown();
-  doc.text('ITENS');
-
-  itens.rows.forEach(i => {
-    doc.text(`${i.qtd}x ${i.produto}`);
-    doc.text(`R$ ${(i.qtd * i.preco).toFixed(2)}`);
-    doc.moveDown(0.3);
-  });
-
-  doc.moveDown();
-  doc.text(`TOTAL: R$ ${pedido.rows[0].total.toFixed(2)}`, { align: 'right' });
-
+  doc.moveDown().text(`TOTAL: R$ ${Number(pedido.total).toFixed(2)}`, { align: 'right' });
   doc.end();
 });
 
 /* ======================
-   MARCAR COMO IMPRESSO
+   IMPRESSÃO
 ====================== */
-app.post('/admin/pedidos/:id/marcar-impresso', async (req, res) => {
-  const { id } = req.params;
+app.post('/admin/pedidos/:id/imprimir', async (req, res) => {
+  const id = req.params.id;
 
-  await db.query(
-    `UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`,
+  const pedidoRes = await db.query('SELECT * FROM pedidos WHERE id=$1', [id]);
+  if (!pedidoRes.rows.length) return res.status(404).json({ erro: 'Pedido não encontrado' });
+
+  const itensRes = await db.query(
+    'SELECT * FROM pedido_itens WHERE pedido_id=$1',
     [id]
   );
 
+  await imprimirPedido({
+    ...pedidoRes.rows[0],
+    itens: itensRes.rows
+  });
+
+  await db.query(`UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`, [id]);
+  res.json({ ok: true });
+});
+
+/* ======================
+   APAGAR HISTÓRICO
+====================== */
+app.delete('/admin/apagar-historico', async (_, res) => {
+  const hoje = moment().format('DD/MM/YYYY');
+  await db.query(`DELETE FROM pedidos WHERE data LIKE $1`, [`%${hoje}%`]);
   res.json({ ok: true });
 });
 
