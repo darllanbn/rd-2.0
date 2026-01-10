@@ -171,7 +171,10 @@ app.get('/admin/pedidos-impressos', (_, res) => listarPedidos('IMPRESSO', res));
 app.get('/admin/pedidos/:id/print', async (req, res) => {
   const id = req.params.id;
 
-  const pedidoRes = await db.query('SELECT * FROM pedidos WHERE id=$1', [id]);
+  const pedidoRes = await db.query(
+    'SELECT * FROM pedidos WHERE id=$1',
+    [id]
+  );
   if (!pedidoRes.rows.length) return res.send('Pedido não encontrado');
 
   const itensRes = await db.query(
@@ -181,6 +184,10 @@ app.get('/admin/pedidos/:id/print', async (req, res) => {
 
   const pedido = pedidoRes.rows[0];
   const itens = itensRes.rows;
+
+  const dataHora = moment(pedido.data, 'DD/MM/YYYY HH:mm:ss').isValid()
+    ? pedido.data
+    : new Date().toLocaleString('pt-BR');
 
   res.send(`
 <!DOCTYPE html>
@@ -201,45 +208,96 @@ body {
   padding: 6mm;
   font-family: 'Courier New', monospace;
   font-size: 12px;
+  color: #000;
 }
 
 .center { text-align: center; }
-hr { border-top: 1px dashed #000; }
+.bold { font-weight: bold; }
+.big { font-size: 14px; }
+.hr {
+  border-top: 1px dashed #000;
+  margin: 6px 0;
+}
 
+.item {
+  display: flex;
+  justify-content: space-between;
+}
 </style>
 </head>
 
 <body onload="window.print()">
 
-<div class="center">
-<strong>RD DISTRIBUIDORA</strong><br>
-Pedido Nº ${pedido.id}
+<div class="center bold big">
+RD DISTRIBUIDORA
 </div>
 
-<hr>
+<div class="center">
+Pedido Nº <strong>${pedido.id}</strong><br>
+${dataHora}
+</div>
 
-${itens.map(i =>
-  `<div>${i.qtd}x ${i.produto}<br>R$ ${(i.qtd * i.preco).toFixed(2)}</div>`
-).join('')}
+<div class="hr"></div>
 
-<hr>
+<div class="bold big center">
+${pedido.condominio}
+</div>
 
-<strong>Total: R$ ${Number(pedido.total).toFixed(2)}</strong>
+<div class="center">
+Casa / Apto: <strong>${pedido.casa || '-'}</strong>
+</div>
 
-<hr>
+<div class="hr"></div>
 
+<div class="bold big center">
+PAGAMENTO
+</div>
+
+<div class="center bold">
+${pedido.pagamento}
+</div>
+
+<div class="hr"></div>
+
+<div class="bold center">
+ITENS DO PEDIDO
+</div>
+
+${itens.map(i => `
+  <div class="item">
+    <span>${i.qtd}x ${i.produto}</span>
+    <span>R$ ${(i.qtd * i.preco).toFixed(2)}</span>
+  </div>
+`).join('')}
+
+<div class="hr"></div>
+
+<div class="bold big center">
+TOTAL: R$ ${Number(pedido.total).toFixed(2)}
+</div>
+
+${pedido.obs ? `
+<div class="hr"></div>
 <div>
-Cond.: ${pedido.condominio}<br>
-Casa: ${pedido.casa}<br>
-Pgto: ${pedido.pagamento}<br>
-Obs: ${pedido.obs || '-'}
+<strong>OBS:</strong><br>
+${pedido.obs}
+</div>
+` : ''}
+
+<div class="hr"></div>
+
+<div class="center">
+Obrigado pela preferência 🙏
 </div>
 
 </body>
 </html>
   `);
 
-  await db.query(`UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`, [id]);
+  await db.query(
+    `UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`,
+    [id]
+  );
 });
 
 /* ======================
