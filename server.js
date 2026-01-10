@@ -143,28 +143,24 @@ app.post('/pedido', async (req, res) => {
    LISTAR PEDIDOS
 ====================== */
 async function listarPedidos(status, res) {
-  const pedidos = await db.query(
+  const pedidosRes = await db.query(
     'SELECT * FROM pedidos WHERE status=$1 ORDER BY id DESC',
     [status]
   );
 
-  if (!pedidos.rows.length) return res.json([]);
+  const pedidos = pedidosRes.rows;
+  if (!pedidos.length) return res.json([]);
 
-  const ids = pedidos.rows.map(p => p.id);
-  const itens = await db.query(
-    'SELECT * FROM pedido_itens WHERE pedido_id = ANY($1)',
-    [ids]
-  );
+  for (const pedido of pedidos) {
+    const itensRes = await db.query(
+      'SELECT produto, qtd, preco FROM pedido_itens WHERE pedido_id=$1',
+      [pedido.id]
+    );
+    pedido.itens = itensRes.rows;
+  }
 
-  pedidos.rows.forEach(p => {
-    p.itens = itens.rows.filter(i => i.pedido_id === p.id);
-  });
-
-  res.json(pedidos.rows);
+  res.json(pedidos);
 }
-
-app.get('/admin/pedidos', (_, res) => listarPedidos('PENDENTE', res));
-app.get('/admin/pedidos-impressos', (_, res) => listarPedidos('IMPRESSO', res));
 
 /* ======================
    PDF (CTRL + P)
