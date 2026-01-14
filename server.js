@@ -118,7 +118,7 @@ app.post('/pedido', async (req, res) => {
     `INSERT INTO pedidos (data, condominio, casa, pagamento, obs, total)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
     [
-      new Date().toLocaleString('pt-BR'),
+      moment().format('DD/MM/YYYY HH:mm:ss'),
       condominio,
       casa || '',
       pagamento,
@@ -185,9 +185,10 @@ app.get('/admin/pedidos/:id/print', async (req, res) => {
   const pedido = pedidoRes.rows[0];
   const itens = itensRes.rows;
 
-  const dataHora = moment(pedido.data, 'DD/MM/YYYY HH:mm:ss').isValid()
-    ? pedido.data
-    : new Date().toLocaleString('pt-BR');
+  const precisaTroco =
+    pedido.pagamento.toUpperCase().includes('DINHEIRO')
+      ? `<div class="line">TROCO PARA: ________________________</div>`
+      : '';
 
   res.send(`
 <!DOCTYPE html>
@@ -197,71 +198,47 @@ app.get('/admin/pedidos/:id/print', async (req, res) => {
 <title>Pedido ${pedido.id}</title>
 
 <style>
-@page {
-  size: 80mm auto;
-  margin: 0;
-}
+@page { size: 80mm auto; margin: 0; }
 
 body {
   width: 80mm;
   margin: 0;
   padding: 6mm;
-  font-family: 'Courier New', monospace;
+  font-family: Courier New, monospace;
   font-size: 12px;
+  font-weight: bold;
   color: #000;
 }
 
 .center { text-align: center; }
-.bold { font-weight: bold; }
 .big { font-size: 14px; }
-.hr {
-  border-top: 1px dashed #000;
-  margin: 6px 0;
-}
-
-.item {
-  display: flex;
-  justify-content: space-between;
-}
+.hr { border-top: 1px dashed #000; margin: 6px 0; }
+.item { display: flex; justify-content: space-between; }
+.line { margin-top: 6px; }
 </style>
 </head>
 
 <body onload="window.print()">
 
-<div class="center bold big">
-RD DISTRIBUIDORA
-</div>
-
-<div class="center">
-Pedido Nº <strong>${pedido.id}</strong><br>
-${dataHora}
-</div>
+<div class="center big">RD DISTRIBUIDORA</div>
+<div class="center">PEDIDO Nº ${pedido.id}</div>
+<div class="center">${pedido.data}</div>
 
 <div class="hr"></div>
 
-<div class="bold big center">
-${pedido.condominio}
-</div>
-
-<div class="center">
-Casa / Apto: <strong>${pedido.casa || '-'}</strong>
-</div>
+<div class="center big">${pedido.condominio}</div>
+<div class="center">CASA / APTO: ${pedido.casa || '-'}</div>
 
 <div class="hr"></div>
 
-<div class="bold big center">
-PAGAMENTO
-</div>
+<div class="center big">FORMA DE PAGAMENTO</div>
+<div class="center">${pedido.pagamento}</div>
 
-<div class="center bold">
-${pedido.pagamento}
-</div>
+${precisaTroco}
 
 <div class="hr"></div>
 
-<div class="bold center">
-ITENS DO PEDIDO
-</div>
+<div class="center">ITENS</div>
 
 ${itens.map(i => `
   <div class="item">
@@ -272,40 +249,28 @@ ${itens.map(i => `
 
 <div class="hr"></div>
 
-<div class="bold big center">
-TOTAL: R$ ${Number(pedido.total).toFixed(2)}
-</div>
+<div class="center big">TOTAL: R$ ${Number(pedido.total).toFixed(2)}</div>
 
 ${pedido.obs ? `
 <div class="hr"></div>
-<div>
-<strong>OBS:</strong><br>
-${pedido.obs}
-</div>
+<div>OBS:<br>${pedido.obs}</div>
 ` : ''}
 
 <div class="hr"></div>
-
-<div class="center">
-Obrigado pela preferência 🙏
-</div>
+<div class="center">OBRIGADO PELA PREFERÊNCIA</div>
 
 </body>
 </html>
   `);
 
-  await db.query(
-    `UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`,
-    [id]
-  );
+  await db.query(`UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`, [id]);
 });
 
 /* ======================
    APAGAR HISTÓRICO
 ====================== */
 app.delete('/admin/apagar-historico', async (_, res) => {
-  const hoje = moment().format('DD/MM/YYYY');
-  await db.query(`DELETE FROM pedidos WHERE data LIKE $1`, [`%${hoje}%`]);
+  await db.query('DELETE FROM pedidos');
   res.json({ ok: true });
 });
 
