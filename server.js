@@ -53,9 +53,10 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS pedidos (
       id SERIAL PRIMARY KEY,
       data TEXT,
-      condominio TEXT,
-      casa TEXT,
+      tipo_entrega TEXT,
+      entrega TEXT,
       pagamento TEXT,
+      troco NUMERIC,
       obs TEXT,
       total NUMERIC,
       status TEXT DEFAULT 'PENDENTE'
@@ -98,56 +99,44 @@ app.post('/admin/produto', upload.single('imagem'), async (req, res) => {
 
   res.json({ ok: true });
 });
-/* ======================
-   ATUALIZAR PRODUTO
-====================== */
+
 app.put('/admin/produto/:id', upload.single('imagem'), async (req, res) => {
-  const id = req.params.id;
+  const { id } = req.params;
   const { nome, preco, estoque } = req.body;
 
-  const produtoRes = await db.query(
-    'SELECT * FROM produtos WHERE id=$1',
-    [id]
-  );
-
-  if (!produtoRes.rows.length) {
-    return res.status(404).json({ erro: 'Produto não encontrado' });
-  }
+  const produto = await db.query('SELECT * FROM produtos WHERE id=$1', [id]);
+  if (!produto.rows.length) return res.sendStatus(404);
 
   const imagem = req.file
     ? '/uploads/' + req.file.filename
-    : produtoRes.rows[0].imagem;
+    : produto.rows[0].imagem;
 
   await db.query(
-    `UPDATE produtos
-     SET nome=$1, preco=$2, estoque=$3, imagem=$4
-     WHERE id=$5`,
+    'UPDATE produtos SET nome=$1, preco=$2, estoque=$3, imagem=$4 WHERE id=$5',
     [nome, preco, estoque, imagem, id]
   );
 
   res.json({ ok: true });
 });
 
-/* ======================
-   EXCLUIR PRODUTO
-====================== */
 app.delete('/admin/produto/:id', async (req, res) => {
-  const id = req.params.id;
-
-  await db.query(
-    'DELETE FROM produtos WHERE id=$1',
-    [id]
-  );
-
+  await db.query('DELETE FROM produtos WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
-
 
 /* ======================
    CRIAR PEDIDO
 ====================== */
 app.post('/pedido', async (req, res) => {
-  const { carrinho, condominio, casa, pagamento, obs } = req.body;
+  const {
+    carrinho,
+    tipoEntrega,
+    entrega,
+    pagamento,
+    troco,
+    obs
+  } = req.body;
+
   let total = 0;
 
   for (const item of carrinho) {
@@ -159,13 +148,15 @@ app.post('/pedido', async (req, res) => {
   }
 
   const pedidoRes = await db.query(
-    `INSERT INTO pedidos (data, condominio, casa, pagamento, obs, total)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+    `INSERT INTO pedidos
+     (data, tipo_entrega, entrega, pagamento, troco, obs, total)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
     [
       moment().format('DD/MM/YYYY HH:mm:ss'),
-      condominio,
-      casa || '',
+      tipoEntrega,
+      entrega,
       pagamento,
+      troco || null,
       obs || '',
       total
     ]
@@ -188,19 +179,16 @@ app.post('/pedido', async (req, res) => {
    LISTAR PEDIDOS
 ====================== */
 async function listarPedidos(status, res) {
-  const pedidosRes = await db.query(
+  const pedidos = (await db.query(
     'SELECT * FROM pedidos WHERE status=$1 ORDER BY id DESC',
     [status]
-  );
-
-  const pedidos = pedidosRes.rows;
+  )).rows;
 
   for (const p of pedidos) {
-    const itensRes = await db.query(
+    p.itens = (await db.query(
       'SELECT produto, qtd, preco FROM pedido_itens WHERE pedido_id=$1',
       [p.id]
-    );
-    p.itens = itensRes.rows;
+    )).rows;
   }
 
   res.json(pedidos);
@@ -210,29 +198,22 @@ app.get('/admin/pedidos', (_, res) => listarPedidos('PENDENTE', res));
 app.get('/admin/pedidos-impressos', (_, res) => listarPedidos('IMPRESSO', res));
 
 /* ======================
-   IMPRESSÃO TÉRMICA (CTRL+P)
+   IMPRESSÃO TÉRMICA
 ====================== */
 app.get('/admin/pedidos/:id/print', async (req, res) => {
   const id = req.params.id;
 
-  const pedidoRes = await db.query(
+  const pedido = (await db.query(
     'SELECT * FROM pedidos WHERE id=$1',
     [id]
-  );
-  if (!pedidoRes.rows.length) return res.send('Pedido não encontrado');
+  )).rows[0];
 
-  const itensRes = await db.query(
+  if (!pedido) return res.send('Pedido não encontrado');
+
+  const itens = (await db.query(
     'SELECT * FROM pedido_itens WHERE pedido_id=$1',
     [id]
-  );
-
-  const pedido = pedidoRes.rows[0];
-  const itens = itensRes.rows;
-
-  const precisaTroco =
-    pedido.pagamento.toUpperCase().includes('DINHEIRO')
-      ? `<div class="line">TROCO PARA: ________________________</div>`
-      : '';
+  )).rows;
 
   res.send(`
 <!DOCTYPE html>
@@ -240,10 +221,8 @@ app.get('/admin/pedidos/:id/print', async (req, res) => {
 <head>
 <meta charset="UTF-8">
 <title>Pedido ${pedido.id}</title>
-
 <style>
 @page { size: 80mm auto; margin: 0; }
-
 body {
   width: 80mm;
   margin: 0;
@@ -251,17 +230,13 @@ body {
   font-family: Courier New, monospace;
   font-size: 12px;
   font-weight: bold;
-  color: #000;
 }
-
 .center { text-align: center; }
-.big { font-size: 14px; }
 .hr { border-top: 1px dashed #000; margin: 6px 0; }
 .item { display: flex; justify-content: space-between; }
-.line { margin-top: 6px; }
+.big { font-size: 14px; }
 </style>
 </head>
-
 <body onload="window.print()">
 
 <div class="center big">RD DISTRIBUIDORA</div>
@@ -270,35 +245,29 @@ body {
 
 <div class="hr"></div>
 
-<div class="center big">${pedido.condominio}</div>
-<div class="center">CASA / APTO: ${pedido.casa || '-'}</div>
+<div class="center big">ENTREGA</div>
+<div class="center">${pedido.entrega}</div>
 
 <div class="hr"></div>
 
-<div class="center big">FORMA DE PAGAMENTO</div>
+<div class="center big">PAGAMENTO</div>
 <div class="center">${pedido.pagamento}</div>
 
-${precisaTroco}
+${pedido.troco ? `<div class="center">TROCO PARA: R$ ${Number(pedido.troco).toFixed(2)}</div>` : ''}
 
 <div class="hr"></div>
 
-<div class="center">ITENS</div>
-
 ${itens.map(i => `
-  <div class="item">
-    <span>${i.qtd}x ${i.produto}</span>
-    <span>R$ ${(i.qtd * i.preco).toFixed(2)}</span>
-  </div>
+<div class="item">
+  <span>${i.qtd}x ${i.produto}</span>
+  <span>R$ ${(i.qtd * i.preco).toFixed(2)}</span>
+</div>
 `).join('')}
 
 <div class="hr"></div>
-
 <div class="center big">TOTAL: R$ ${Number(pedido.total).toFixed(2)}</div>
 
-${pedido.obs ? `
-<div class="hr"></div>
-<div>OBS:<br>${pedido.obs}</div>
-` : ''}
+${pedido.obs ? `<div class="hr"></div><div>OBS: ${pedido.obs}</div>` : ''}
 
 <div class="hr"></div>
 <div class="center">OBRIGADO PELA PREFERÊNCIA</div>
@@ -308,14 +277,6 @@ ${pedido.obs ? `
   `);
 
   await db.query(`UPDATE pedidos SET status='IMPRESSO' WHERE id=$1`, [id]);
-});
-
-/* ======================
-   APAGAR HISTÓRICO
-====================== */
-app.delete('/admin/apagar-historico', async (_, res) => {
-  await db.query('DELETE FROM pedidos');
-  res.json({ ok: true });
 });
 
 /* ======================

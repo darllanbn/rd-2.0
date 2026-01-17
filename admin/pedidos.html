@@ -12,13 +12,15 @@ body {
   padding:20px;
 }
 .container {
-  max-width:1100px;
+  max-width:1200px;
   margin:auto;
   background:#fff;
   padding:20px;
   border-radius:8px;
 }
-h1 { color:#ff7a00; }
+h1 {
+  color:#ff7a00;
+}
 table {
   width:100%;
   border-collapse:collapse;
@@ -28,11 +30,23 @@ th, td {
   padding:10px;
   border-bottom:1px solid #ddd;
   text-align:center;
+  font-size:14px;
 }
 th {
   background:#ff7a00;
   color:#fff;
 }
+.badge {
+  padding:4px 8px;
+  border-radius:4px;
+  font-size:12px;
+  color:#fff;
+}
+.pix { background:#0d6efd; }
+.dinheiro { background:#198754; }
+.cartao { background:#6f42c1; }
+.outros { background:#6c757d; }
+
 button {
   padding:6px 10px;
   border:none;
@@ -55,9 +69,10 @@ button {
     <thead>
       <tr>
         <th>ID</th>
-        <th>Data</th>
-        <th>Condomínio</th>
+        <th>Data / Hora</th>
+        <th>Entrega</th>
         <th>Casa</th>
+        <th>Pagamento</th>
         <th>Total</th>
         <th>Ação</th>
       </tr>
@@ -74,13 +89,32 @@ async function carregarPedidos() {
   tbody.innerHTML = '';
 
   pedidos.forEach(p => {
+    const pagamentoClasse =
+      p.pagamento === 'Pix' ? 'pix' :
+      p.pagamento === 'Dinheiro' ? 'dinheiro' :
+      p.pagamento === 'Cartao' ? 'cartao' : 'outros';
+
+    const entrega = p.condominio && p.condominio !== 'Outros'
+      ? `🏢 ${p.condominio}`
+      : `📍 ${p.outros || 'Outro local'}`;
+
+    const troco = p.pagamento === 'Dinheiro' && p.troco
+      ? `<br><small>Troco: R$ ${Number(p.troco).toFixed(2)}</small>`
+      : '';
+
     tbody.innerHTML += `
       <tr>
-        <td>${p.id}</td>
+        <td>#${p.id}</td>
         <td>${p.data}</td>
-        <td>${p.condominio}</td>
+        <td>${entrega}</td>
         <td>${p.casa || '-'}</td>
-        <td>R$ ${Number(p.total).toFixed(2)}</td>
+        <td>
+          <span class="badge ${pagamentoClasse}">
+            ${p.pagamento}
+          </span>
+          ${troco}
+        </td>
+        <td><strong>R$ ${Number(p.total).toFixed(2)}</strong></td>
         <td>
           <button class="imprimir" onclick="imprimir(${p.id})">
             🖨️ Imprimir
