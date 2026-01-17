@@ -53,10 +53,9 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS pedidos (
       id SERIAL PRIMARY KEY,
       data TEXT,
-      tipo_entrega TEXT,
-      entrega TEXT,
+      condominio TEXT,
+      casa TEXT,
       pagamento TEXT,
-      troco NUMERIC,
       obs TEXT,
       total NUMERIC,
       status TEXT DEFAULT 'PENDENTE'
@@ -71,9 +70,20 @@ async function initDB() {
     );
   `);
 
-  console.log('🗄️ PostgreSQL pronto');
+  // 🔥 ADIÇÕES AUTOMÁTICAS (SE NÃO EXISTIREM)
+  await db.query(`
+    ALTER TABLE pedidos
+    ADD COLUMN IF NOT EXISTS tipo_entrega TEXT;
+  `);
+
+  await db.query(`
+    ALTER TABLE pedidos
+    ADD COLUMN IF NOT EXISTS troco TEXT;
+  `);
+
+  console.log('🗄️ PostgreSQL pronto e atualizado');
 }
-initDB();
+
 
 /* ======================
    PRODUTOS
