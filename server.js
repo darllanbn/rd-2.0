@@ -70,7 +70,7 @@ async function initDB() {
     );
   `);
 
-  // 🔥 ADIÇÕES AUTOMÁTICAS (SE NÃO EXISTIREM)
+  // 🔹 COLUNAS NOVAS (SEM QUEBRAR O BANCO)
   await db.query(`
     ALTER TABLE pedidos
     ADD COLUMN IF NOT EXISTS tipo_entrega TEXT;
@@ -83,7 +83,7 @@ async function initDB() {
 
   console.log('🗄️ PostgreSQL pronto e atualizado');
 }
-
+initDB();
 
 /* ======================
    PRODUTOS
@@ -110,95 +110,82 @@ app.post('/admin/produto', upload.single('imagem'), async (req, res) => {
   res.json({ ok: true });
 });
 
-app.put('/admin/produto/:id', upload.single('imagem'), async (req, res) => {
-  const { id } = req.params;
-  const { nome, preco, estoque } = req.body;
-
-  const produto = await db.query('SELECT * FROM produtos WHERE id=$1', [id]);
-  if (!produto.rows.length) return res.sendStatus(404);
-
-  const imagem = req.file
-    ? '/uploads/' + req.file.filename
-    : produto.rows[0].imagem;
-
-  await db.query(
-    'UPDATE produtos SET nome=$1, preco=$2, estoque=$3, imagem=$4 WHERE id=$5',
-    [nome, preco, estoque, imagem, id]
-  );
-
-  res.json({ ok: true });
-});
-
-app.delete('/admin/produto/:id', async (req, res) => {
-  await db.query('DELETE FROM produtos WHERE id=$1', [req.params.id]);
-  res.json({ ok: true });
-});
-
 /* ======================
    CRIAR PEDIDO
 ====================== */
 app.post('/pedido', async (req, res) => {
-  const {
-    carrinho,
-    tipoEntrega,
-    entrega,
-    pagamento,
-    troco,
-    obs
-  } = req.body;
-
-  let total = 0;
-
-  for (const item of carrinho) {
-    total += item.preco * item.qtd;
-    await db.query(
-      'UPDATE produtos SET estoque = estoque - $1 WHERE id = $2',
-      [item.qtd, item.id]
-    );
-  }
-
-  const pedidoRes = await db.query(
-    `INSERT INTO pedidos
-     (data, tipo_entrega, entrega, pagamento, troco, obs, total)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [
-      moment().format('DD/MM/YYYY HH:mm:ss'),
-      tipoEntrega,
-      entrega,
+  try {
+    const {
+      carrinho,
+      condominio,
+      casa,
       pagamento,
-      troco || null,
-      obs || '',
-      total
-    ]
-  );
+      obs,
+      tipo_entrega,
+      troco
+    } = req.body;
 
-  const pedidoId = pedidoRes.rows[0].id;
+    let total = 0;
 
-  for (const item of carrinho) {
-    await db.query(
-      `INSERT INTO pedido_itens (pedido_id, produto, qtd, preco)
-       VALUES ($1,$2,$3,$4)`,
-      [pedidoId, item.nome, item.qtd, item.preco]
+    for (const item of carrinho) {
+      total += item.preco * item.qtd;
+      await db.query(
+        'UPDATE produtos SET estoque = estoque - $1 WHERE id = $2',
+        [item.qtd, item.id]
+      );
+    }
+
+    const pedidoRes = await db.query(
+      `INSERT INTO pedidos
+       (data, condominio, casa, pagamento, obs, total, tipo_entrega, troco)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id`,
+      [
+        moment().format('DD/MM/YYYY HH:mm:ss'),
+        condominio || '',
+        casa || '',
+        pagamento,
+        obs || '',
+        total,
+        tipo_entrega || 'CONDOMÍNIO',
+        pagamento === 'Dinheiro' ? (troco || '') : ''
+      ]
     );
-  }
 
-  res.json({ ok: true });
+    const pedidoId = pedidoRes.rows[0].id;
+
+    for (const item of carrinho) {
+      await db.query(
+        `INSERT INTO pedido_itens (pedido_id, produto, qtd, preco)
+         VALUES ($1,$2,$3,$4)`,
+        [pedidoId, item.nome, item.qtd, item.preco]
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ erro: 'Erro ao enviar pedido' });
+  }
 });
 
 /* ======================
    LISTAR PEDIDOS
 ====================== */
 async function listarPedidos(status, res) {
-  const pedidos = (await db.query(
+  const pedidosRes = await db.query(
     'SELECT * FROM pedidos WHERE status=$1 ORDER BY id DESC',
     [status]
-  )).rows;
+  );
+
+  const pedidos = pedidosRes.rows;
 
   for (const p of pedidos) {
-    p.itens = (await db.query(
+    const itensRes = await db.query(
       'SELECT produto, qtd, preco FROM pedido_itens WHERE pedido_id=$1',
       [p.id]
-    )).rows;
+    );
+    p.itens = itensRes.rows;
   }
 
   res.json(pedidos);
@@ -206,71 +193,26 @@ async function listarPedidos(status, res) {
 
 app.get('/admin/pedidos', (_, res) => listarPedidos('PENDENTE', res));
 app.get('/admin/pedidos-impressos', (_, res) => listarPedidos('IMPRESSO', res));
-async function finalizar() {
-
-  if (carrinho.length === 0) {
-    alert('Carrinho vazio');
-    return;
-  }
-
-  const condominio = document.getElementById('condominio').value;
-  const casa = document.getElementById('casa').value;
-  const pagamento = document.getElementById('pagamento').value;
-  const obs = document.getElementById('obs').value;
-
-  if (!condominio) {
-    alert('Informe o condomínio ou selecione Outros');
-    return;
-  }
-
-  if (!pagamento) {
-    alert('Informe a forma de pagamento');
-    return;
-  }
-
-  try {
-    const res = await fetch('/pedido', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        carrinho,
-        condominio,
-        casa,
-        pagamento,
-        obs
-      })
-    });
-
-    if (!res.ok) throw new Error();
-
-    alert('Pedido enviado com sucesso!');
-    carrinho = [];
-    atualizarCarrinho();
-
-  } catch (err) {
-    console.error(err);
-    alert('Erro ao enviar pedido');
-  }
-}
-
 
 /* ======================
-   IMPRESSÃO TÉRMICA
+   IMPRESSÃO
 ====================== */
 app.get('/admin/pedidos/:id/print', async (req, res) => {
   const id = req.params.id;
 
-  const pedido = (await db.query(
+  const pedidoRes = await db.query(
     'SELECT * FROM pedidos WHERE id=$1',
     [id]
-  )).rows[0];
+  );
+  if (!pedidoRes.rows.length) return res.send('Pedido não encontrado');
 
-  if (!pedido) return res.send('Pedido não encontrado');
-
-  const itens = (await db.query(
+  const itensRes = await db.query(
     'SELECT * FROM pedido_itens WHERE pedido_id=$1',
     [id]
-  )).rows;
+  );
+
+  const pedido = pedidoRes.rows[0];
+  const itens = itensRes.rows;
 
   res.send(`
 <!DOCTYPE html>
@@ -282,7 +224,6 @@ app.get('/admin/pedidos/:id/print', async (req, res) => {
 @page { size: 80mm auto; margin: 0; }
 body {
   width: 80mm;
-  margin: 0;
   padding: 6mm;
   font-family: Courier New, monospace;
   font-size: 12px;
@@ -291,26 +232,24 @@ body {
 .center { text-align: center; }
 .hr { border-top: 1px dashed #000; margin: 6px 0; }
 .item { display: flex; justify-content: space-between; }
-.big { font-size: 14px; }
 </style>
 </head>
 <body onload="window.print()">
 
-<div class="center big">RD DISTRIBUIDORA</div>
+<div class="center">RD DISTRIBUIDORA</div>
 <div class="center">PEDIDO Nº ${pedido.id}</div>
 <div class="center">${pedido.data}</div>
 
 <div class="hr"></div>
 
-<div class="center big">ENTREGA</div>
-<div class="center">${pedido.entrega}</div>
+<div>ENTREGA: ${pedido.tipo_entrega || '-'}</div>
+<div>LOCAL: ${pedido.condominio}</div>
+<div>CASA/APTO: ${pedido.casa || '-'}</div>
 
 <div class="hr"></div>
 
-<div class="center big">PAGAMENTO</div>
-<div class="center">${pedido.pagamento}</div>
-
-${pedido.troco ? `<div class="center">TROCO PARA: R$ ${Number(pedido.troco).toFixed(2)}</div>` : ''}
+<div>PAGAMENTO: ${pedido.pagamento}</div>
+${pedido.troco ? `<div>TROCO PARA: ${pedido.troco}</div>` : ''}
 
 <div class="hr"></div>
 
@@ -322,12 +261,9 @@ ${itens.map(i => `
 `).join('')}
 
 <div class="hr"></div>
-<div class="center big">TOTAL: R$ ${Number(pedido.total).toFixed(2)}</div>
+<div class="center">TOTAL R$ ${Number(pedido.total).toFixed(2)}</div>
 
 ${pedido.obs ? `<div class="hr"></div><div>OBS: ${pedido.obs}</div>` : ''}
-
-<div class="hr"></div>
-<div class="center">OBRIGADO PELA PREFERÊNCIA</div>
 
 </body>
 </html>
