@@ -98,6 +98,50 @@ app.post('/admin/produto', upload.single('imagem'), async (req, res) => {
 
   res.json({ ok: true });
 });
+/* ======================
+   ATUALIZAR PRODUTO
+====================== */
+app.put('/admin/produto/:id', upload.single('imagem'), async (req, res) => {
+  const id = req.params.id;
+  const { nome, preco, estoque } = req.body;
+
+  const produtoRes = await db.query(
+    'SELECT * FROM produtos WHERE id=$1',
+    [id]
+  );
+
+  if (!produtoRes.rows.length) {
+    return res.status(404).json({ erro: 'Produto não encontrado' });
+  }
+
+  const imagem = req.file
+    ? '/uploads/' + req.file.filename
+    : produtoRes.rows[0].imagem;
+
+  await db.query(
+    `UPDATE produtos
+     SET nome=$1, preco=$2, estoque=$3, imagem=$4
+     WHERE id=$5`,
+    [nome, preco, estoque, imagem, id]
+  );
+
+  res.json({ ok: true });
+});
+
+/* ======================
+   EXCLUIR PRODUTO
+====================== */
+app.delete('/admin/produto/:id', async (req, res) => {
+  const id = req.params.id;
+
+  await db.query(
+    'DELETE FROM produtos WHERE id=$1',
+    [id]
+  );
+
+  res.json({ ok: true });
+});
+
 
 /* ======================
    CRIAR PEDIDO

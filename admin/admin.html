@@ -3,63 +3,160 @@
 <head>
 <meta charset="UTF-8">
 <title>Admin RD - Produtos</title>
+
 <style>
-  body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; }
-  h2, h3 { color: #333; }
-  form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-  form input { padding: 5px; }
-  form button { padding: 5px 10px; cursor: pointer; background: #28a745; color: #fff; border: none; border-radius: 3px; }
-  table { width: 100%; border-collapse: collapse; background: #fff; }
-  th, td { padding: 8px; text-align: center; border: 1px solid #ccc; }
-  th { background: #007bff; color: #fff; }
-  button { cursor: pointer; border: none; border-radius: 3px; padding: 5px 8px; }
-  .btn-editar { background: #ffc107; color: #fff; }
-  .btn-excluir { background: #dc3545; color: #fff; }
-  input[type="number"], input[type="text"] { width: 80px; }
-  
-  /* Modal */
-  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-           background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
-  .modal-content { background: #fff; padding: 20px; border-radius: 5px; width: 400px; }
-  .modal-content h3 { margin-top: 0; }
-  .modal-content input { width: 100%; margin-bottom: 10px; padding: 5px; }
-  .modal-content button { width: 48%; margin-right: 2%; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    padding: 20px;
+  }
+
+  h2, h3 {
+    color: #333;
+  }
+
+  form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    background: #fff;
+    padding: 15px;
+    border-radius: 5px;
+  }
+
+  form input {
+    padding: 6px;
+  }
+
+  form button {
+    padding: 6px 14px;
+    cursor: pointer;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+  }
+
+  th, td {
+    padding: 8px;
+    text-align: center;
+    border: 1px solid #ddd;
+  }
+
+  th {
+    background: #007bff;
+    color: #fff;
+  }
+
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 3px;
+    padding: 5px 8px;
+  }
+
+  .btn-editar {
+    background: #ffc107;
+    color: #000;
+  }
+
+  .btn-excluir {
+    background: #dc3545;
+    color: #fff;
+  }
+
+  input[type="number"], input[type="text"] {
+    width: 120px;
+  }
+
+  img {
+    border-radius: 4px;
+  }
+
+  /* MODAL */
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+  }
+
+  .modal-content {
+    background: #fff;
+    padding: 20px;
+    border-radius: 6px;
+    width: 420px;
+  }
+
+  .modal-content h3 {
+    margin-top: 0;
+  }
+
+  .modal-content input {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 6px;
+  }
+
+  .modal-content .acoes {
+    display: flex;
+    justify-content: space-between;
+  }
 </style>
 </head>
+
 <body>
 
 <h2>📦 Cadastro de Produtos</h2>
 
 <form id="form-produto" enctype="multipart/form-data">
-  <input type="text" name="nome" placeholder="Nome" required>
+  <input type="text" name="nome" placeholder="Nome do produto" required>
   <input type="number" step="0.01" name="preco" placeholder="Preço" required>
   <input type="number" name="estoque" placeholder="Estoque" required>
   <input type="file" name="imagem" required>
-  <button>Adicionar</button>
+  <button type="submit">Adicionar</button>
 </form>
 
-<hr>
-
 <h3>📋 Produtos Cadastrados</h3>
+
 <table>
-<thead>
-<tr>
-<th>ID</th><th>Imagem</th><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th>
-</tr>
-</thead>
-<tbody id="lista"></tbody>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Imagem</th>
+      <th>Nome</th>
+      <th>Preço</th>
+      <th>Estoque</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody id="lista"></tbody>
 </table>
 
-<!-- Modal de edição -->
+<!-- MODAL EDIÇÃO -->
 <div id="modal" class="modal">
   <div class="modal-content">
-    <h3>Editar Produto</h3>
+    <h3>✏️ Editar Produto</h3>
+
     <input type="text" id="edit-nome" placeholder="Nome">
     <input type="number" step="0.01" id="edit-preco" placeholder="Preço">
     <input type="number" id="edit-estoque" placeholder="Estoque">
     <input type="file" id="edit-imagem">
-    <button onclick="salvarEdicao()">Salvar</button>
-    <button onclick="fecharModal()">Cancelar</button>
+
+    <div class="acoes">
+      <button class="btn-editar" onclick="salvarEdicao()">Salvar</button>
+      <button class="btn-excluir" onclick="fecharModal()">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -70,45 +167,74 @@ let produtoEditando = null;
 const form = document.getElementById('form-produto');
 const modal = document.getElementById('modal');
 
+/* ======================
+   ADICIONAR PRODUTO
+====================== */
 form.onsubmit = async e => {
   e.preventDefault();
+
   const data = new FormData(form);
-  await fetch('/admin/produto', { method: 'POST', body: data });
+
+  await fetch('/admin/produto', {
+    method: 'POST',
+    body: data
+  });
+
   form.reset();
   carregar();
 };
 
+/* ======================
+   CARREGAR PRODUTOS
+====================== */
 async function carregar() {
-  const res = await fetch('/admin/produtos');
-  produtos = await res.json();
-  const tbody = document.getElementById('lista');
-  tbody.innerHTML = '';
+  try {
+    const res = await fetch('/admin/produtos');
+    produtos = await res.json();
 
-  produtos.forEach(p => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${p.id}</td>
-        <td><img src="${p.imagem}" width="50"></td>
-        <td>${p.nome}</td>
-        <td>R$ ${p.preco.toFixed(2)}</td>
-        <td>${p.estoque}</td>
-        <td>
-          <button class="btn-editar" onclick="abrirModal(${p.id})">✏️</button>
-          <button class="btn-excluir" onclick="excluir(${p.id})">🗑️</button>
-        </td>
-      </tr>
-    `;
-  });
+    const tbody = document.getElementById('lista');
+    tbody.innerHTML = '';
+
+    produtos.forEach(p => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${p.id}</td>
+          <td>
+            ${p.imagem ? `<img src="${p.imagem}" width="50">` : '—'}
+          </td>
+          <td>${p.nome}</td>
+          <td>R$ ${Number(p.preco).toFixed(2)}</td>
+          <td>${p.estoque}</td>
+          <td>
+            <button class="btn-editar" onclick="abrirModal(${p.id})">✏️</button>
+            <button class="btn-excluir" onclick="excluir(${p.id})">🗑️</button>
+          </td>
+        </tr>
+      `;
+    });
+
+  } catch (err) {
+    alert('Erro ao carregar produtos');
+    console.error(err);
+  }
 }
 
-// Excluir produto
+/* ======================
+   EXCLUIR
+====================== */
 async function excluir(id) {
-  if (!confirm('Excluir produto?')) return;
-  await fetch('/admin/produto/' + id, { method: 'DELETE' });
+  if (!confirm('Deseja excluir este produto?')) return;
+
+  await fetch('/admin/produto/' + id, {
+    method: 'DELETE'
+  });
+
   carregar();
 }
 
-// Abrir modal de edição
+/* ======================
+   MODAL
+====================== */
 function abrirModal(id) {
   produtoEditando = produtos.find(p => p.id === id);
   if (!produtoEditando) return;
@@ -116,28 +242,29 @@ function abrirModal(id) {
   document.getElementById('edit-nome').value = produtoEditando.nome;
   document.getElementById('edit-preco').value = produtoEditando.preco;
   document.getElementById('edit-estoque').value = produtoEditando.estoque;
+  document.getElementById('edit-imagem').value = '';
 
   modal.style.display = 'flex';
 }
 
-// Fechar modal
 function fecharModal() {
   produtoEditando = null;
   modal.style.display = 'none';
 }
 
-// Salvar edição
+/* ======================
+   SALVAR EDIÇÃO
+====================== */
 async function salvarEdicao() {
-  const nome = document.getElementById('edit-nome').value;
-  const preco = Number(document.getElementById('edit-preco').value);
-  const estoque = Number(document.getElementById('edit-estoque').value);
-  const imagemFile = document.getElementById('edit-imagem').files[0];
+  if (!produtoEditando) return;
 
   const formData = new FormData();
-  formData.append('nome', nome);
-  formData.append('preco', preco);
-  formData.append('estoque', estoque);
-  if (imagemFile) formData.append('imagem', imagemFile);
+  formData.append('nome', document.getElementById('edit-nome').value);
+  formData.append('preco', document.getElementById('edit-preco').value);
+  formData.append('estoque', document.getElementById('edit-estoque').value);
+
+  const imagem = document.getElementById('edit-imagem').files[0];
+  if (imagem) formData.append('imagem', imagem);
 
   await fetch('/admin/produto/' + produtoEditando.id, {
     method: 'PUT',
