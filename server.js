@@ -196,6 +196,53 @@ async function listarPedidos(status, res) {
 
 app.get('/admin/pedidos', (_, res) => listarPedidos('PENDENTE', res));
 app.get('/admin/pedidos-impressos', (_, res) => listarPedidos('IMPRESSO', res));
+async function finalizar() {
+
+  if (carrinho.length === 0) {
+    alert('Carrinho vazio');
+    return;
+  }
+
+  const condominio = document.getElementById('condominio').value;
+  const casa = document.getElementById('casa').value;
+  const pagamento = document.getElementById('pagamento').value;
+  const obs = document.getElementById('obs').value;
+
+  if (!condominio) {
+    alert('Informe o condomínio ou selecione Outros');
+    return;
+  }
+
+  if (!pagamento) {
+    alert('Informe a forma de pagamento');
+    return;
+  }
+
+  try {
+    const res = await fetch('/pedido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        carrinho,
+        condominio,
+        casa,
+        pagamento,
+        obs
+      })
+    });
+
+    if (!res.ok) throw new Error();
+
+    alert('Pedido enviado com sucesso!');
+    carrinho = [];
+    atualizarCarrinho();
+
+  } catch (err) {
+    console.error(err);
+    alert('Erro ao enviar pedido');
+  }
+}
+
 
 /* ======================
    IMPRESSÃO TÉRMICA
